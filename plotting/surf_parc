@@ -7,7 +7,7 @@ Brain Parcellation Plotter with Region Values
 
 Loads:
 1. A parcellation from GIFTI files (.label.gii)
-2. Region values from a text file (one value per region, excluding background)
+2. Region values from a text file (one value per region)
 Plots the data on fsaverage surfaces.
 
 Author: Makliya Mamat (makliyanotes.com)
