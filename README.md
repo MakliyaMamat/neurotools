@@ -1,2 +1,2 @@
 # Resources
-Some data, tools and scripts
+Some tools and scripts
