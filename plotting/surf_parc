@@ -6,65 +6,56 @@ Brain Parcellation Plotter with Region Values
 ============================================
 
 Loads:
-1. A parcellation from GIFTI files (.label.gii)
+1. Parcellations from GIFTI files (.label.gii)
 2. Region values from a text file (one value per region)
 Plots the data on fsaverage surfaces.
 
 Author: Makliya Mamat (makliyanotes.com)
 Date: 2025-03-25  
-Usage: 
-  python plot_parcellation.py lh.label.gii rh.label.gii region_values.txt [output.png]
 """
 
-import sys
-import numpy as np
-import nibabel as nib
 from surfplot import Plot
 from neuromaps.datasets import fetch_fsaverage
+import numpy as np
+import nibabel as nib
 from brainspace.mesh.mesh_io import read_surface
+from pathlib import Path
 
-def load_region_values(txt_path):
-    """Load region values from a text file (one value per line)."""
-    with open(txt_path, 'r') as f:
-        return np.array([float(line.strip()) for line in f if line.strip()])
+# Load background surfaces
+surfaces = fetch_fsaverage(density='164k')
+lh_surf = read_surface(str(surfaces['pial'][0]))  # Left pial surface
+rh_surf = read_surface(str(surfaces['pial'][1]))  # Right pial surface
 
-def plot_parcellation(lh_gii, rh_gii, values_txt, output="plot.png"):
-    # Load surfaces
-    surfaces = fetch_fsaverage(density='164k')
-    lh_surf = read_surface(str(surfaces['pial'][0]))
-    rh_surf = read_surface(str(surfaces['pial'][1]))
+# Load your converted parcellation
+atlas_lh = nib.load('lh_parcellation.label.gii').agg_data()
+atlas_rh = nib.load('rh_parcellation.label.gii').agg_data()
 
-    # Load parcellation
-    lh_labels = nib.load(lh_gii).agg_data()
-    rh_labels = nib.load(rh_gii).agg_data()
-    all_labels = np.concatenate([lh_labels, rh_labels])
+# Combine hemispheres
+atlas = np.concatenate([atlas_lh, atlas_rh])
 
-    # Load region values
-    region_values = load_region_values(values_txt)
-    unique_labels = np.unique(all_labels)
-    unique_labels = unique_labels[unique_labels != 0]  # Remove background
+# Verify vertex counts match
+print(f"Surface vertices - Left: {lh_surf.n_points}, Right: {rh_surf.n_points}")
+print(f"Parcellation vertices - Left: {len(atlas_lh)}, Right: {len(atlas_rh)}")
 
-    if len(region_values) != len(unique_labels):
-        raise ValueError(
-            f"Mismatch: Found {len(unique_labels)} regions but {len(region_values)} values"
-        )
+# Assign random values to parcels
+unique = np.unique(atlas)[1:]  # Exclude background (0)
+for val in unique:
+    atlas[atlas == val] = np.random.uniform(-2, 2)
 
-    # Map values to vertices
-    vertex_values = np.zeros_like(all_labels, dtype=float)
-    for i, label in enumerate(unique_labels):
-        vertex_values[all_labels == label] = region_values[i]
+# Generate plot
+p = Plot(lh_surf, rh_surf, 
+         views=['lateral', 'medial'], 
+         zoom=1.2)
 
-    # Plot
-    p = Plot(lh_surf, rh_surf, views=['lateral', 'medial'], zoom=1.2)
-    p.add_layer(vertex_values, cmap='viridis', cbar=True)
-    fig = p.build()
-    fig.savefig(output, dpi=300, bbox_inches='tight')
-    print(f"Saved: {output}")
+p.add_layer(atlas, 
+            cmap='coolwarm',
+            cbar=True,
+            color_range=(-2, 2))
 
-if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print("Usage: python script.py lh.label.gii rh.label.gii values.txt [output.png]")
-        sys.exit(1)
-    
-    output = sys.argv[4] if len(sys.argv) > 4 else "output.png"
-    plot_parcellation(sys.argv[1], sys.argv[2], sys.argv[3], output)
+fig = p.build()
+fig.savefig('my_custom_plot.png', 
+            dpi=300, 
+            bbox_inches='tight',
+            transparent=False)
+
+print("Plot saved successfully!")
